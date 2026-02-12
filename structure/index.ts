@@ -33,9 +33,4 @@ export const structure: StructureResolver = (S) =>
               .params({siteId: site.id}),
           ),
       ),
-      S.divider(),
-      S.listItem()
-        .title('Sites')
-        .schemaType('site')
-        .child(S.documentTypeList('site').title('Sites')),
     ])

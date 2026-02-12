@@ -1,12 +1,6 @@
 import {defineField, defineType} from 'sanity'
-
-const OVERRIDABLE_FIELDS = [
-  {title: 'Title', value: 'title'},
-  {title: 'Slug', value: 'slug'},
-  {title: 'Published At', value: 'publishedAt'},
-  {title: 'Image', value: 'image'},
-  {title: 'Body', value: 'body'},
-]
+import {InheritableField} from '../components/InheritableField'
+import {InheritanceToggle} from '../components/InheritanceToggle'
 
 export const sitePostType = defineType({
   name: 'sitePost',
@@ -32,31 +26,28 @@ export const sitePostType = defineType({
     // --- Document-level inheritance ---
     defineField({
       name: 'inheritanceEnabled',
-      title: 'Inheritance Enabled',
+      title: 'Override all fields',
       description:
-        'When enabled, this post inherits content from the master post. Disable to make all fields locally editable.',
+        'Enable to override all fields locally. Disable to inherit content from the master post.',
       type: 'boolean',
       initialValue: true,
+      components: {field: InheritanceToggle},
     }),
 
-    // --- Field-level inheritance ---
+    // --- Backing field for per-field override tracking (hidden from UI) ---
     defineField({
       name: 'overriddenFields',
-      title: 'Overridden Fields',
-      description: 'Select which fields to override with local values. Unselected fields inherit from master.',
       type: 'array',
       of: [{type: 'string'}],
-      options: {
-        list: OVERRIDABLE_FIELDS,
-      },
-      hidden: ({document}) => document?.inheritanceEnabled === false,
+      hidden: true,
     }),
 
-    // --- Content fields (override values) ---
+    // --- Content fields with per-field inheritance toggle ---
     defineField({
       name: 'title',
       type: 'string',
-      hidden: ({document}) => {
+      components: {field: InheritableField},
+      readOnly: ({document}) => {
         if (document?.inheritanceEnabled === false) return false
         return !(document?.overriddenFields as string[] | undefined)?.includes('title')
       },
@@ -64,8 +55,25 @@ export const sitePostType = defineType({
     defineField({
       name: 'slug',
       type: 'slug',
-      options: {source: 'title'},
-      hidden: ({document}) => {
+      options: {
+        source: 'title',
+        isUnique: async (slug, context) => {
+          const {document, getClient} = context
+          const client = getClient({apiVersion: '2024-01-01'})
+          const siteRef = (document?.site as {_ref?: string} | undefined)?._ref
+          if (!siteRef) return true
+          const id = document?._id ?? ''
+          const publishedId = id.replace(/^drafts\./, '')
+          const draftId = `drafts.${publishedId}`
+          const count = await client.fetch(
+            `count(*[_type == "sitePost" && slug.current == $slug && site._ref == $siteRef && !(_id in [$publishedId, $draftId])])`,
+            {slug, siteRef, publishedId, draftId},
+          )
+          return count === 0
+        },
+      },
+      components: {field: InheritableField},
+      readOnly: ({document}) => {
         if (document?.inheritanceEnabled === false) return false
         return !(document?.overriddenFields as string[] | undefined)?.includes('slug')
       },
@@ -73,7 +81,8 @@ export const sitePostType = defineType({
     defineField({
       name: 'publishedAt',
       type: 'datetime',
-      hidden: ({document}) => {
+      components: {field: InheritableField},
+      readOnly: ({document}) => {
         if (document?.inheritanceEnabled === false) return false
         return !(document?.overriddenFields as string[] | undefined)?.includes('publishedAt')
       },
@@ -81,7 +90,8 @@ export const sitePostType = defineType({
     defineField({
       name: 'image',
       type: 'image',
-      hidden: ({document}) => {
+      components: {field: InheritableField},
+      readOnly: ({document}) => {
         if (document?.inheritanceEnabled === false) return false
         return !(document?.overriddenFields as string[] | undefined)?.includes('image')
       },
@@ -90,7 +100,8 @@ export const sitePostType = defineType({
       name: 'body',
       type: 'array',
       of: [{type: 'block'}],
-      hidden: ({document}) => {
+      components: {field: InheritableField},
+      readOnly: ({document}) => {
         if (document?.inheritanceEnabled === false) return false
         return !(document?.overriddenFields as string[] | undefined)?.includes('body')
       },

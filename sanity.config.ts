@@ -3,7 +3,7 @@ import {structureTool} from 'sanity/structure'
 import {visionTool} from '@sanity/vision'
 import {schemaTypes} from './schemaTypes'
 import {structure} from './structure'
-import {publishAndRolloutAction} from './actions/publishAndRollout'
+import {rolloutAction} from './actions/publishAndRollout'
 
 export default defineConfig({
   name: 'default',
@@ -21,7 +21,7 @@ export default defineConfig({
   document: {
     actions: (prev, context) => {
       if (context.schemaType === 'post') {
-        return [...prev, publishAndRolloutAction]
+        return [...prev, rolloutAction]
       }
       return prev
     },
